@@ -6,3 +6,4 @@ fuzzywuzzy
 levenshtein
 selenium
 folium
+streamlit_folium
