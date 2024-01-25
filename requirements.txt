@@ -5,3 +5,4 @@ numpy
 fuzzywuzzy
 levenshtein
 selenium
+folium
