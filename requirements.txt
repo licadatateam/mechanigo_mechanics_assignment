@@ -2,7 +2,6 @@ pandas
 streamlit
 regex
 numpy
-json
 fuzzywuzzy
 levenshtein
 selenium
