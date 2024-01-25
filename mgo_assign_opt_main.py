@@ -385,7 +385,8 @@ def display_folium(display_appointments : pd.DataFrame) -> folium.folium.Map:
     '''
     map_lat = display_appointments['lat'].mean()
     map_long = display_appointments['long'].mean()
-    m = folium.Map(location=[map_lat, map_long], zoom_start=10)
+    m = folium.Map(location=[map_lat, map_long], 
+                   zoom_start=10)
     
     if len(display_appointments)>0:
         for index, row in display_appointments.iterrows():
@@ -420,20 +421,23 @@ def display_tab_eda(appointments : pd.DataFrame) -> pd.DataFrame:
     
     eda_dict =  generate_eda(appointments)
     
-    a, b = st.columns([1,3])
+    a, b, c = st.columns([1, 1, 3])
     
     with a:
         st.metric('Total Appointments',
                   value = eda_dict['total_appointments'],
-                  delta = 'Services: '+ str(eda_dict['total_services']),
-                  delta_color ='off')
+                  )
     
     with b:
+        st.metric('Total Services',
+                  value = eda_dict['total_services'],
+                  )
+    
+    with c:
         st.bar_chart(eda_dict['location'].drop(columns='total'))
     
-    
+    # extract unique appointment timeslots
     timeslots = appointments['time'].sort_values(ascending=True).unique()
-    
     time_filter = st.multiselect('Select timeslots:', 
                                  timeslots,
                                  default = timeslots)
@@ -443,14 +447,15 @@ def display_tab_eda(appointments : pd.DataFrame) -> pd.DataFrame:
     folium_map = display_folium(display_appointments)
     
     if check_streamlit:
-        c, d = st.columns(2)
-        
-        with c:
-            # display map
-            st_folium(folium_map)
+        d, e = st.columns([2, 3])
         
         with d:
+            # display filtered appointments data
             st.write(display_appointments)
+        
+        with e:
+            # display map
+            st_folium(folium_map)
     
     
 def no_st_main():
