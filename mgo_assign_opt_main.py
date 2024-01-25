@@ -14,13 +14,14 @@ import logging
 import json
 from fuzzywuzzy import fuzz, process
 import streamlit as st
+import folium
 
 # custom modules
 from barangay_processing import geocode_by_barangay
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(message)s',
                     datefmt = '%d-%b-%y %H:%M:%S',
-                    level=logging.DEBUG)
+                    level=logging.WARNING)
 
 def check_streamlit():
     """
@@ -40,6 +41,17 @@ def check_streamlit():
     except ModuleNotFoundError:
         use_streamlit = False
     return use_streamlit
+
+def monkeypatch_get_storage_manager():
+    if st.runtime.exists():
+        return st.runtime.get_instance().cache_storage_manager
+    else:
+        # When running in "raw mode", we can't access the CacheStorageManager,
+        # so we're falling back to InMemoryCache.
+        # _LOGGER.warning("No runtime found, using MemoryCacheStorageManager")
+        return st.runtime.caching.storage.dummy_cache_storage.MemoryCacheStorageManager()
+
+st.runtime.caching._data_caches.get_storage_manager = monkeypatch_get_storage_manager
 
 def load_config(config_file = 'config'):
     '''
@@ -326,6 +338,88 @@ def geocode(barangays: dict,
         else:
             raise e
 
+@st.cache_data
+def generate_eda(appointments: pd.DataFrame) -> dict:
+    """
+    Generate exploratory data analysis (EDA) metrics from the given appointments DataFrame.
+
+    Args:
+    -----
+        - appointments : pd.DataFrame
+            The DataFrame containing appointment data.
+
+    Returns:
+    --------
+        dict : [int, int, pd.DataFrame] 
+            A dictcontaining total appointments, total services, and a DataFrame with location information.
+    """
+    # Calculate total number of appointments and services
+    total_appointments = appointments['appointment_count'].sum()
+    total_services = appointments['services_count'].sum()
+    
+    # Generate DataFrame with location information
+    df_location = appointments.groupby('time')['province'].value_counts().unstack()
+    df_location['total'] = df_location.sum(axis=1).astype(int)
+    
+    return {'total_appointments' : total_appointments,
+            'total_services' : total_services,
+            'location' : df_location}
+
+@st.cache_data
+def display_tab_eda(appointments : pd.DataFrame):
+    
+    st.header("Geocoded Addresses")
+    
+    eda_dict =  generate_eda(appointments)
+    
+    a, b = st.columns([1,3])
+    
+    with a:
+        st.metric('Total Appointments',
+                  value = eda_dict['total_appointments'],
+                  delta = 'Services: '+ str(eda_dict['total_services']),
+                  delta_color ='off')
+    
+    with b:
+        st.bar_chart(eda_dict['df_location'].drop(columns='total'))
+    
+    c, d = st.columns([2,2])
+    
+    # construct timeslots
+    timeslots = appointments['time'].sort_values(ascending=True).unique()
+    
+    with c:
+        time_filter = st.multiselect('Select timeslots:', 
+                                     timeslots,
+                                     default = timeslots)
+        
+    display_appointments = appointments.loc[appointments['time'].isin(time_filter)]
+    # display appointments
+    st.write(display_appointments)
+    
+    map_lat = display_appointments['lat'].mean()
+    map_long = display_appointments['long'].mean()
+    m = folium.Map(location=[map_lat, map_long], zoom_start=10)
+    
+    if len(display_appointments)>0:
+        for index, row in display_appointments.iterrows():
+            lat_row = row['lat']
+            long_row = row['long']
+            tooltip = 'Appointment ID: ' +str(row['appointment_id'])
+            popup = '\n'.join([row['time'],row['fullname'],f"Service: {row['service_category']} Address: {row['pin_address']}"])
+            
+            folium.Marker(
+                location=[lat_row, long_row],
+                popup=folium.Popup(popup, parse_html=True),
+                tooltip=tooltip,
+            ).add_to(m)
+            # custom_icon = folium.CustomIcon(golden_icon, icon_size=(35, 35))
+            # folium.Marker(location=coordinates, icon=custom_icon,popup=popup)
+           
+    folium_data = st_folium(m)
+    with d:
+        st.write(display_appointments)
+    
 def no_st_main():
     # configuration settings
     config_dict = load_config()
@@ -352,7 +446,14 @@ def no_st_main():
     # geocoding
     geo_dict = geocode(config_dict['barangays'], appointments)
     appointments = geo_dict['appointments']
-
+    
+    # generate eda
+    eda_dict =  generate_eda(appointments)
+    
+    # construct timeslots
+    timeslots = appointments['time'].sort_values(ascending=True).unique()
+    
+    
     return appointments
     
 def st_main():
@@ -399,6 +500,10 @@ def st_main():
         geo_dict = geocode(config_dict['barangays'], appointments)
         appointments = geo_dict['appointments']
     
+        with tab_eda:
+            display_tab_eda(appointments)
+            
+            
     return appointments
 
 if __name__ == "__main__":
@@ -413,7 +518,8 @@ if __name__ == "__main__":
         logging.debug('Running script in streamlit.')
         res = st_main()
     else:
-        res = no_st_main()
+        #res = no_st_main()
+        pass
 
     # end program
     end = dt.now()
