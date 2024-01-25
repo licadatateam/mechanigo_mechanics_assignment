@@ -2,5 +2,4 @@ pandas
 streamlit
 regex
 numpy
-json
 fuzzywuzzy
