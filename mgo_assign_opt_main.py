@@ -212,7 +212,7 @@ def st_main():
                                       value = init_dates['value'], 
                                       min_value = init_dates['min_date'], 
                                       max_value = init_dates['max_date'])
-        selected_date = date(2024, 1, 24)
+        selected_date = date(2024, 1, 24).strftime('%Y-%m-%d')
     
     # Define tabs for Streamlit app    
     tab_eda, tab_raw, tab_geocode, tab_clustered, tab_timeline, tab_dm, tab_final = st.tabs(
