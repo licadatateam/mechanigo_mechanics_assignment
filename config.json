@@ -1,0 +1,15 @@
+{
+    "mapsApiKey":"AIzaSyBuXyNC48si4vmw2380PPqil1XnsazTUAg",
+    "redashApiKey":"http://app.redash.licagroup.ph/api/queries/225/results.csv?api_key=CNrNQGAhqA3BXIa5N9nvMBzGxs1frIMUY63fFMvi",
+    "barangays_sheet_id":"1C4XVFaYPCMPtRFE5X_sHO_a89QCmU2bVzmnMTWwrkN8",
+    "barangays_tab":"1054857011",
+    "orders_sheet_id":"1C4XVFaYPCMPtRFE5X_sHO_a89QCmU2bVzmnMTWwrkN8",
+    "orders_tab":"1417590793",
+    "makati_hub": {"appointment_id":"makati_hub","lat":14.5640785,"long":121.0113147},
+    "sucat_hub": {"appointment_id":"sucat_hub","lat":14.4534866,"long":121.0301002},
+    "starosa_hub":{"appointment_id":"starosa_hub","lat":14.2579658,"long":121.0694949},
+    "mechanics_count_redash":"http://app.redash.licagroup.ph/api/queries/237/results.csv?api_key=YuHtFpGduQNyxubodM6t0Lonpr6obCiszR0Vh5vd",
+    "appointments_reference_redash":"http://app.redash.licagroup.ph/api/queries/225/results.csv?api_key=CNrNQGAhqA3BXIa5N9nvMBzGxs1frIMUY63fFMvi",
+    "time_interval":2,
+    "redash_mechanic_col":"unique_mechanics"
+}
