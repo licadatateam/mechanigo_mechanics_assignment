@@ -381,7 +381,7 @@ def display_tab_eda(appointments : pd.DataFrame):
                   delta_color ='off')
     
     with b:
-        st.bar_chart(eda_dict['df_location'].drop(columns='total'))
+        st.bar_chart(eda_dict['location'].drop(columns='total'))
     
     c, d = st.columns([2,2])
     
