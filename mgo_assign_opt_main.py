@@ -13,8 +13,10 @@ import regex as re
 import logging
 import json
 from fuzzywuzzy import fuzz, process
+
 import streamlit as st
 import folium
+from streamlit_folium import st_folium
 
 # custom modules
 from barangay_processing import geocode_by_barangay
