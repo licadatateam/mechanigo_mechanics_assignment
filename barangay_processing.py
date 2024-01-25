@@ -5,7 +5,7 @@ Created on Fri Oct  6 09:16:14 2023
 @author: Arvin Jay
 """
 
-from py_functions.gmaps_maps import Geocoder
+from gmaps_maps import Geocoder
 import pandas as pd
 
 
