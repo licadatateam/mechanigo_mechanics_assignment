@@ -367,8 +367,54 @@ def generate_eda(appointments: pd.DataFrame) -> dict:
             'total_services' : total_services,
             'location' : df_location}
 
-@st.cache_data(experimental_allow_widgets = True)
-def display_tab_eda(appointments : pd.DataFrame):
+@st.cache_data
+def display_folium(display_appointments : pd.DataFrame) -> folium.folium.Map:
+    '''
+    Creates leaflet map for appointment locations
+    
+    Args:
+    -----
+        - display_appointments : pd.DataFrame
+            Dataframe with filtered by timeslot to be displayed in map
+    
+    Returns:
+    --------
+        - m : folium.folium.Map
+            Folium map of filtered appointment locations
+    
+    '''
+    map_lat = display_appointments['lat'].mean()
+    map_long = display_appointments['long'].mean()
+    m = folium.Map(location=[map_lat, map_long], zoom_start=10)
+    
+    if len(display_appointments)>0:
+        for index, row in display_appointments.iterrows():
+            lat_row = row['lat']
+            long_row = row['long']
+            tooltip = 'Appointment ID: ' + str(row['appointment_id'])
+            popup = '\n'.join([row['time'],
+                               row['fullname'],
+                               f"Service: {row['service_category']} Address: {row['pin_address']}"])
+            
+            folium.Marker(
+                location=[lat_row, long_row],
+                popup=folium.Popup(popup, parse_html=True),
+                tooltip=tooltip,
+            ).add_to(m)
+            # custom_icon = folium.CustomIcon(golden_icon, icon_size=(35, 35))
+            # folium.Marker(location=coordinates, icon=custom_icon,popup=popup)
+           
+    return m
+
+def display_tab_eda(appointments : pd.DataFrame) -> pd.DataFrame:
+    '''
+    Generates EDA page for tab_eda in streamlit
+    
+    Args:
+        - appointments : pd.DataFrame
+            Dataframe of appointments
+    
+    '''
     
     st.header("Geocoded Addresses")
     
@@ -385,42 +431,27 @@ def display_tab_eda(appointments : pd.DataFrame):
     with b:
         st.bar_chart(eda_dict['location'].drop(columns='total'))
     
-    c, d = st.columns([2,2])
     
-    # construct timeslots
     timeslots = appointments['time'].sort_values(ascending=True).unique()
     
-    with c:
-        time_filter = st.multiselect('Select timeslots:', 
-                                     timeslots,
-                                     default = timeslots)
-        
+    time_filter = st.multiselect('Select timeslots:', 
+                                 timeslots,
+                                 default = timeslots)
+    
     display_appointments = appointments.loc[appointments['time'].isin(time_filter)]
-    # display appointments
-    st.write(display_appointments)
     
-    map_lat = display_appointments['lat'].mean()
-    map_long = display_appointments['long'].mean()
-    m = folium.Map(location=[map_lat, map_long], zoom_start=10)
+    folium_map = display_folium(display_appointments)
     
-    if len(display_appointments)>0:
-        for index, row in display_appointments.iterrows():
-            lat_row = row['lat']
-            long_row = row['long']
-            tooltip = 'Appointment ID: ' +str(row['appointment_id'])
-            popup = '\n'.join([row['time'],row['fullname'],f"Service: {row['service_category']} Address: {row['pin_address']}"])
-            
-            folium.Marker(
-                location=[lat_row, long_row],
-                popup=folium.Popup(popup, parse_html=True),
-                tooltip=tooltip,
-            ).add_to(m)
-            # custom_icon = folium.CustomIcon(golden_icon, icon_size=(35, 35))
-            # folium.Marker(location=coordinates, icon=custom_icon,popup=popup)
-           
-    folium_data = st_folium(m)
-    with d:
-        st.write(display_appointments)
+    if check_streamlit:
+        c, d = st.columns(2)
+        
+        with c:
+            # display map
+            st_folium(folium_map)
+        
+        with d:
+            st.write(display_appointments)
+    
     
 def no_st_main():
     # configuration settings
@@ -452,9 +483,6 @@ def no_st_main():
     # generate eda
     eda_dict =  generate_eda(appointments)
     
-    # construct timeslots
-    timeslots = appointments['time'].sort_values(ascending=True).unique()
-    
     
     return appointments
     
@@ -474,6 +502,7 @@ def st_main():
                                       value = init_dates['value'], 
                                       min_value = init_dates['min_date'], 
                                       max_value = init_dates['max_date'])
+        # TODO: temporary for testing
         selected_date = date(2024, 1, 24).strftime('%Y-%m-%d')
     
     # Define tabs for Streamlit app    
@@ -503,6 +532,7 @@ def st_main():
         appointments = geo_dict['appointments']
     
         with tab_eda:
+            
             display_tab_eda(appointments)
             
             
