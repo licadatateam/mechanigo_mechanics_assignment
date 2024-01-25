@@ -367,7 +367,7 @@ def generate_eda(appointments: pd.DataFrame) -> dict:
             'total_services' : total_services,
             'location' : df_location}
 
-@st.cache_data
+@st.cache_data(experimental_allow_widgets = True)
 def display_tab_eda(appointments : pd.DataFrame):
     
     st.header("Geocoded Addresses")
