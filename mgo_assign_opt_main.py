@@ -161,7 +161,11 @@ def gather_data(key: str,
         # TODO: clean province from redash
         appointments['province'] = appointments['province'].str.title()
         # filter appointments on date
-        appointments = appointments.loc[appointments['date']==selected_date.strftime('%Y-%m-%d')].drop(columns = ['date'])
+        try:
+            appointments = appointments.loc[appointments['date']==selected_date].drop(columns = ['date'])
+        except:
+            appointments = appointments.loc[appointments['date']==selected_date.strftime('%Y-%m-%d')].drop(columns = ['date'])
+      
         # drop duplicates
         appointments = appointments.drop_duplicates(subset = ['appointment_id']).reset_index(drop = True)
         appointments['address'] = appointments['address'].fillna('')
