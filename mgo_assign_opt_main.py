@@ -13,6 +13,7 @@ import regex as re
 import logging
 import json
 from fuzzywuzzy import fuzz, process
+from typing import Generator
 
 import streamlit as st
 import folium
@@ -20,6 +21,7 @@ from streamlit_folium import st_folium
 
 # custom modules
 from barangay_processing import geocode_by_barangay
+import orMechanicAssignment, clustering_methods
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(message)s',
                     datefmt = '%d-%b-%y %H:%M:%S',
@@ -55,7 +57,7 @@ def monkeypatch_get_storage_manager():
 
 st.runtime.caching._data_caches.get_storage_manager = monkeypatch_get_storage_manager
 
-def load_config(config_file = 'config'):
+def load_config(config_file : str = 'config') -> dict:
     '''
     
     Load configuration data and secrets
@@ -65,12 +67,13 @@ def load_config(config_file = 'config'):
     
     Args:
     -----
-    - config_file : str
+        - config_file : str
             configuration filename (no extension)
     
     Returns:
     --------
-    - 
+        - keys : dict
+            config file dict
     
     '''
     # load configuration and secrets
@@ -78,21 +81,15 @@ def load_config(config_file = 'config'):
     with open(config_file) as json_file:
         keys = json.load(json_file)
     
-    # gmaps api key
-    maps_key = keys['mapsApiKey']
-    # redash api key
-    redash_key = keys['redashApiKey']
-    # barangays data from google sheets 
     # TODO: convert to redash query
     barangays = {'sheet_id': keys['barangays_sheet_id'],
                  'tab': keys['barangays_tab']}
     orders = {'sheet_id': keys['orders_sheet_id'],
                  'tab': keys['orders_tab']}
     
-    return {'maps' : maps_key,
-            'redash' : redash_key,
-            'barangays': barangays,
-            'orders' : orders}
+    keys['barangays'] = barangays
+    keys['orders'] = orders
+    return keys
     
 
 def initialize() -> dict:
@@ -145,14 +142,14 @@ def extract_hub(entry: str):
 
 @st.cache_data
 def gather_data(key: str, 
-                selected_date: date or str) -> pd.DataFrame:
+                selected_date: (date, str)) -> pd.DataFrame:
     """
     Gather appointment data from the specified key and selected date.
 
     Args:
     ------
         - key : str
-            The key to access appointment data (redash_key)
+            The key to access appointment data (redashApiKey)
         - selected_date : date 
             The selected date for filtering appointments.
 
@@ -421,7 +418,7 @@ def display_tab_eda(appointments : pd.DataFrame) -> pd.DataFrame:
     
     eda_dict =  generate_eda(appointments)
     
-    a, b, c = st.columns([1, 1, 3])
+    a, b, c = st.columns([1, 1, 2])
     
     with a:
         st.metric('Total Appointments',
@@ -447,7 +444,7 @@ def display_tab_eda(appointments : pd.DataFrame) -> pd.DataFrame:
     folium_map = display_folium(display_appointments)
     
     if check_streamlit:
-        d, e = st.columns([2, 3])
+        d, e = st.columns([2, 2])
         
         with d:
             # display filtered appointments data
@@ -457,7 +454,44 @@ def display_tab_eda(appointments : pd.DataFrame) -> pd.DataFrame:
             # display map
             st_folium(folium_map)
     
-    
+
+def generate_hub_timetable(appointments: pd.DataFrame) -> pd.DataFrame:
+    """
+    Generate a timetable for each hub based on the given appointments.
+
+    Args:
+        appointments (pd.DataFrame): DataFrame containing appointment information.
+
+    Returns:
+        pd.DataFrame: Timetable for each hub.
+    """
+    def time_range(start: dt, end: dt, delta: timedelta) -> Generator[dt, None, None]:
+        current = start
+        while current < end:
+            yield current
+            current += delta
+
+    dts = [dt.strftime('%H:%M') for dt in time_range(datetime(2024, 1, 1, 1), datetime(2024, 1, 1, 23), timedelta(hours=0.5))]
+    hubs_list = list()
+    data_list = list()
+
+    for hubs in appointments['hub_solver'].unique():
+        hubs_list.append(hubs)
+        time_dict = dict()
+
+        for itime in dts:
+            time_dict[itime] = len(
+                appointments.loc[
+                    (appointments['hub_solver'] == hubs) &
+                    (appointments['time'] <= itime) &
+                    (appointments['time_end'] >= itime)
+                ]
+            )
+
+        data_list.append(time_dict)
+
+    return pd.DataFrame(data_list, index=hubs_list).T
+
 def no_st_main():
     # configuration settings
     config_dict = load_config()
@@ -470,7 +504,7 @@ def no_st_main():
     selected_date = date(2024, 1, 24)
     
     # Load Redash query result
-    appointments = gather_data(config_dict['redash'], selected_date)
+    appointments = gather_data(config_dict['redashApiKey'], selected_date)
     
     # check if there are appointments scheduled
     if len(appointments) == 0:
@@ -516,7 +550,7 @@ def st_main():
          'Timelines', 'Distance Matrix', 'Assignment'])
     
     # Load Redash query result
-    appointments = gather_data(config_dict['redash'], selected_date)
+    appointments = gather_data(config_dict['redashApiKey'], selected_date)
     
     # check if there are appointments scheduled
     if len(appointments) == 0:
@@ -539,8 +573,50 @@ def st_main():
         with tab_eda:
             
             display_tab_eda(appointments)
-            
-            
+        
+    with st.sidebar:
+        choices = [None] + list(range(0,31))
+        makati_hub_mechanics = st.selectbox('Makati hub mechanic count:', 
+                                            options = choices,
+                                            index = choices.index(15))
+        starosa_hub_mechanics = st.selectbox('Sta.Rosa hub mechanic count:', 
+                                             options = choices,
+                                             index = choices.index(15))
+        sucat_hub_mechanics = st.selectbox('Sucat hub mechanic count:', 
+                                           options = choices,
+                                           index = 1)
+        # st.write(f"makati_hub_mechanics={makati_hub_mechanics},starosa_hub_mechanics={starosa_hub_mechanics},sucat_hub_mechanics={sucat_hub_mechanics}")
+        
+    mechanic_counts_dict = {'makati_hub':makati_hub_mechanics,
+                            'starosa_hub':starosa_hub_mechanics,
+                            'sucat_hub':sucat_hub_mechanics}
+    
+    appointments,similarity,mechanics_per_hub,df_hub_service = clustering_methods.cluster_appointments(appointments,
+                                                                                                       config_dict,
+                                                                                                       mechanic_counts_dict)
+    if type(similarity)==str:
+        st.info('Insufficient entries to perform optimization')
+        st.stop()                                                                                      
+    
+    with tab_clustered:
+        appointments_clustered = appointments[clustering_methods.show_columns].copy()
+        
+        tcA, tcB = st.columns([1,4])
+        with tcB:
+            st.write('Appointments with calculated hub assignments.')
+            st.write(appointments_clustered)
+            if len(df_hub_service):
+                st.write('Appointments with pre-calculated hub assignments.')
+                st.write(df_hub_service)
+        
+        with tcA:
+            clustering_methods.show_similarity(similarity)
+    
+    # Display timeline
+    with tab_timeline:
+        timetable = generate_hub_timetable(appointments)
+        st.write(timetable)
+    
     return appointments
 
 if __name__ == "__main__":
