@@ -471,7 +471,7 @@ def generate_hub_timetable(appointments: pd.DataFrame) -> pd.DataFrame:
             yield current
             current += delta
 
-    dts = [dt.strftime('%H:%M') for dt in time_range(datetime(2024, 1, 1, 1), datetime(2024, 1, 1, 23), timedelta(hours=0.5))]
+    dts = [dt.strftime('%H:%M') for dt in time_range(dt(2024, 1, 1, 1), dt(2024, 1, 1, 23), timedelta(hours=0.5))]
     hubs_list = list()
     data_list = list()
 
