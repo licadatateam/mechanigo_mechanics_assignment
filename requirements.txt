@@ -8,3 +8,4 @@ selenium
 folium
 streamlit_folium
 ortools
+scikit-learn
